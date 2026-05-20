@@ -11,6 +11,9 @@ struct RecordListView: View {
     @State private var selectedDate = Date()
     @State private var showRecordDetail = false
     @State private var selectedRecordType: RecordType = .feeding
+    @State private var animateCards = false
+    @State private var animateTimeline = false
+    @Namespace private var namespace
 
     let filters = ["今日", "本周", "本月", "全部"]
 
@@ -47,16 +50,30 @@ struct RecordListView: View {
 
             if filteredRecords.isEmpty {
                 emptyState
+                    .transition(.asymmetric(
+                        insertion: .scale.combined(with: .opacity),
+                        removal: .scale.combined(with: .opacity)
+                    ))
             } else {
                 ScrollView {
                     VStack(spacing: 20) {
                         summaryCards
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
                         analysisSection
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
                         chartSection
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
                         timelineList
                     }
                     .padding(.bottom, 20)
                 }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
             }
         }
         .background(Color.background)
@@ -66,21 +83,65 @@ struct RecordListView: View {
         .sheet(isPresented: $showRecordDetail) {
             RecordDetailView(recordType: selectedRecordType)
         }
+        .onChange(of: selectedFilter) { _, _ in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                animateCards = false
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    animateCards = true
+                }
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1)) {
+                animateCards = true
+            }
+        }
     }
 
     var emptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 48))
-                .foregroundColor(Color.outlineVariant)
-            Text("暂无记录")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Color.onSurface)
-            Text("该时间段内没有找到记录\n试试切换其他时间范围")
-                .font(.system(size: 14))
-                .foregroundColor(Color.outline)
-                .multilineTextAlignment(.center)
+
+            ZStack {
+                Circle()
+                    .fill(Color.primaryContainer.opacity(0.3))
+                    .frame(width: 120, height: 120)
+                    .scaleEffect(animateCards ? 1 : 0.8)
+
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.system(size: 48))
+                    .foregroundColor(Color.primary)
+                    .symbolEffect(.pulse, options: .repeating)
+            }
+
+            VStack(spacing: 8) {
+                Text("暂无记录")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(Color.onSurface)
+
+                Text("该时间段内没有找到记录\n试试切换其他时间范围")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color.outline)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: { showDatePicker = true }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 14))
+                    Text("选择日期")
+                        .font(.system(size: 15, weight: .medium))
+                }
+                .foregroundColor(Color.primary)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(Color.primaryContainer)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(ScaleButtonStyle())
+
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -96,6 +157,7 @@ struct RecordListView: View {
                 Text(filterSubtitle)
                     .font(.system(size: 14))
                     .foregroundColor(Color.outline)
+                    .contentTransition(.numericText())
             }
 
             Spacer()
@@ -106,6 +168,7 @@ struct RecordListView: View {
                         .font(.system(size: 14))
                     Text(dateTitle)
                         .font(.system(size: 14, weight: .medium))
+                        .contentTransition(.numericText())
                 }
                 .foregroundColor(Color.primary)
                 .padding(.horizontal, 16)
@@ -113,6 +176,7 @@ struct RecordListView: View {
                 .background(Color.primaryContainer.opacity(0.3))
                 .clipShape(Capsule())
             }
+            .buttonStyle(ScaleButtonStyle())
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
@@ -131,17 +195,32 @@ struct RecordListView: View {
 
     var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 ForEach(0..<filters.count, id: \.self) { index in
-                    Button(action: { selectedFilter = index }) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedFilter = index
+                        }
+                    }) {
                         Text(filters[index])
                             .font(.system(size: 14, weight: selectedFilter == index ? .bold : .medium))
-                            .foregroundColor(selectedFilter == index ? Color.onPrimaryContainer : Color.onSurface)
+                            .foregroundColor(selectedFilter == index ? .white : Color.onSurface)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
-                            .background(selectedFilter == index ? Color.primaryContainer : Color.surfaceContainerHighest)
-                            .clipShape(Capsule())
+                            .background(
+                                Group {
+                                    if selectedFilter == index {
+                                        Capsule()
+                                            .fill(Color.primary)
+                                            .matchedGeometryEffect(id: "filterCapsule", in: namespace)
+                                    } else {
+                                        Capsule()
+                                            .fill(Color.surfaceContainerHighest)
+                                    }
+                                }
+                            )
                     }
+                    .buttonStyle(ScaleButtonStyle())
                 }
             }
             .padding(.horizontal, 20)
@@ -229,6 +308,10 @@ struct RecordListView: View {
                             color: Color.secondary,
                             isPositive: true
                         )
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .scale.combined(with: .opacity)
+                        ))
                     }
                     if sleepCount >= 1 {
                         AnalysisCard(
@@ -238,6 +321,10 @@ struct RecordListView: View {
                             color: Color.primaryDim,
                             isPositive: true
                         )
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .scale.combined(with: .opacity)
+                        ))
                     }
                     if formulaCount > 0 {
                         AnalysisCard(
@@ -247,6 +334,10 @@ struct RecordListView: View {
                             color: Color.tertiary,
                             isPositive: true
                         )
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .scale.combined(with: .opacity)
+                        ))
                     }
                     if diaperCount >= 4 {
                         AnalysisCard(
@@ -256,6 +347,10 @@ struct RecordListView: View {
                             color: Color.onSurfaceVariant,
                             isPositive: true
                         )
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .scale.combined(with: .opacity)
+                        ))
                     }
                     if filteredRecords.isEmpty {
                         AnalysisCard(
@@ -303,16 +398,35 @@ struct RecordListView: View {
                 Text("\(filteredRecords.count) 条记录")
                     .font(.system(size: 13))
                     .foregroundColor(Color.outline)
+                    .contentTransition(.numericText())
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
 
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: 4) {
                 ForEach(Array(filteredRecords.enumerated()), id: \.offset) { index, record in
                     timelineRow(record: record, isLast: index == filteredRecords.count - 1)
+                        .opacity(animateTimeline ? 1 : 0)
+                        .offset(y: animateTimeline ? 0 : 20)
+                        .animation(
+                            .spring(response: 0.4, dampingFraction: 0.7)
+                                .delay(Double(index) * 0.05),
+                            value: animateTimeline
+                        )
                 }
             }
             .padding(.horizontal, 20)
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                animateTimeline = true
+            }
+        }
+        .onChange(of: filteredRecords.count) { _, _ in
+            animateTimeline = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                animateTimeline = true
+            }
         }
     }
 
@@ -336,10 +450,17 @@ struct RecordListView: View {
                     Circle()
                         .fill(color)
                         .frame(width: 10, height: 10)
+                        .shadow(color: color.opacity(0.5), radius: 3, y: 1)
 
                     if !isLast {
                         Rectangle()
-                            .fill(Color.outlineVariant.opacity(0.3))
+                            .fill(
+                                LinearGradient(
+                                    colors: [color.opacity(0.3), Color.outlineVariant.opacity(0.1)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
                             .frame(width: 2, height: 40)
                     }
                 }
@@ -360,6 +481,7 @@ struct RecordListView: View {
                         Text(record.note)
                             .font(.system(size: 12))
                             .foregroundColor(Color.outline)
+                            .lineLimit(1)
                     }
 
                     Spacer()
@@ -371,10 +493,35 @@ struct RecordListView: View {
                 .padding(12)
                 .background(Color.surfaceContainerLowest)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: Color.black.opacity(0.03), radius: 4, y: 1)
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, 12)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(ScaleButtonStyle())
+        .contextMenu {
+            Button(action: {
+                selectedRecordType = record.recordType
+                showRecordDetail = true
+            }) {
+                Label("查看详情", systemImage: "eye")
+            }
+
+            Button(action: {
+                // TODO: 编辑功能
+            }) {
+                Label("编辑", systemImage: "pencil")
+            }
+
+            Divider()
+
+            Button(role: .destructive, action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    modelContext.delete(record)
+                }
+            }) {
+                Label("删除", systemImage: "trash")
+            }
+        }
     }
 
     var datePickerSheet: some View {
@@ -424,20 +571,16 @@ struct RecordListView: View {
     }
 
     func iconColor(for type: RecordType) -> Color {
-        switch type {
-        case .feeding: return Color.secondary
-        case .sleep: return Color.primaryDim
-        case .diaper: return Color.onSurfaceVariant
-        case .formula: return Color.secondary
-        case .poop: return Color.secondary
-        case .growth: return Color.tertiary
-        case .vaccine: return Color(hex: "FF6B6B")
-        case .babyFood: return Color(hex: "4ECDC4")
-        case .pumping: return Color.secondary
-        case .symptom: return Color.error
-        case .headCircumference: return Color(hex: "96CEB4")
-        case .tooth: return Color.primary
-        }
+        type.iconColor
+    }
+}
+
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
@@ -448,6 +591,7 @@ struct SummaryCard: View {
     let unit: String
     let subtitle: String
     let color: Color
+    @State private var isPressed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -464,6 +608,7 @@ struct SummaryCard: View {
                 Text(value)
                     .font(.system(size: 28, weight: .bold))
                     .foregroundColor(Color.onSurface)
+                    .contentTransition(.numericText())
                 Text(unit)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Color.outline)
@@ -477,7 +622,18 @@ struct SummaryCard: View {
         .frame(width: 140)
         .background(Color.surfaceContainerLowest)
         .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: color.opacity(0.1), radius: 8, y: 2)
+        .shadow(color: color.opacity(0.15), radius: 8, y: 2)
+        .scaleEffect(isPressed ? 0.95 : 1)
+        .onTapGesture {
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                isPressed = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                    isPressed = false
+                }
+            }
+        }
     }
 }
 
@@ -513,6 +669,7 @@ struct AnalysisCard: View {
             RoundedRectangle(cornerRadius: 20)
                 .stroke(color.opacity(0.2), lineWidth: 1)
         )
+        .shadow(color: Color.black.opacity(0.03), radius: 4, y: 1)
     }
 }
 
@@ -520,6 +677,7 @@ struct FeedingChart: View {
     var records: [RecordModel]
     let labels = ["一", "二", "三", "四", "五", "六", "日"]
     let maxValue: CGFloat = 8
+    @State private var animateChart = false
 
     var weeklyData: [CGFloat] {
         let calendar = Calendar.current
@@ -559,7 +717,7 @@ struct FeedingChart: View {
                     VStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(index == 6 ? Color.secondary : Color.secondary.opacity(0.3))
-                            .frame(height: weeklyData[index] / maxValue * 60)
+                            .frame(height: animateChart ? (weeklyData[index] / maxValue * 60) : 0)
 
                         Text(labels[index])
                             .font(.system(size: 10))
@@ -572,6 +730,12 @@ struct FeedingChart: View {
         .padding(16)
         .background(Color.surfaceContainerLowest)
         .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.03), radius: 4, y: 1)
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2)) {
+                animateChart = true
+            }
+        }
     }
 }
 
@@ -579,6 +743,7 @@ struct SleepChart: View {
     var records: [RecordModel]
     let labels = ["一", "二", "三", "四", "五", "六", "日"]
     let maxValue: CGFloat = 14
+    @State private var animateChart = false
 
     var weeklyData: [CGFloat] {
         let calendar = Calendar.current
@@ -624,7 +789,7 @@ struct SleepChart: View {
                     VStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(index == 6 ? Color.primaryDim : Color.primaryDim.opacity(0.3))
-                            .frame(height: weeklyData[index] / maxValue * 60)
+                            .frame(height: animateChart ? (weeklyData[index] / maxValue * 60) : 0)
 
                         Text(labels[index])
                             .font(.system(size: 10))
@@ -637,6 +802,12 @@ struct SleepChart: View {
         .padding(16)
         .background(Color.surfaceContainerLowest)
         .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.03), radius: 4, y: 1)
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.3)) {
+                animateChart = true
+            }
+        }
     }
 }
 

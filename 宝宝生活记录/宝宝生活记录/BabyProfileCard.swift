@@ -6,54 +6,61 @@ struct BabyProfileCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 20) {
+            HStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(Color.primaryContainer)
+                        .fill(Color.white.opacity(0.25))
                         .frame(width: 88, height: 88)
 
                     Image(systemName: "face.smiling.inverse")
                         .font(.system(size: 44))
-                        .foregroundColor(Color.primary)
+                        .foregroundColor(.white)
                 }
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                .shadow(radius: 2)
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(profile?.name ?? "宝宝")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(Color.onPrimaryContainer)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.white)
 
                     Text(profile?.ageDescription ?? "未设置生日")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color.onSurfaceVariant)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
 
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color.tertiary)
+                            .font(.system(size: 12))
                         Text("健康成长中")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(Color.tertiary)
-                            .textCase(.uppercase)
+                            .font(.system(size: 11, weight: .semibold))
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .background(Color.tertiaryContainer.opacity(0.3))
+                    .foregroundColor(.white.opacity(0.9))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(Color.white.opacity(0.15))
                     .clipShape(Capsule())
-                    .overlay(Capsule().stroke(Color.tertiary.opacity(0.1), lineWidth: 1))
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color.outline)
+                    .foregroundColor(.white.opacity(0.5))
+                    .padding(8)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(Circle())
             }
             .padding(28)
-            .background(Color.primaryContainer.opacity(0.3))
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color.primary,
+                        Color.primary.opacity(0.8)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
             .clipShape(RoundedRectangle(cornerRadius: 24))
+            .shadow(color: Color.primary.opacity(0.3), radius: 12, y: 4)
         }
         .buttonStyle(PlainButtonStyle())
     }

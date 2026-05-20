@@ -104,10 +104,18 @@ struct SleepTimerView: View {
         let record = RecordModel(type: .sleep, timestamp: startTime, note: noteText)
         record.sleepEndTime = endTime
         modelContext.insert(record)
+        checkAchievements()
 
         schedulePostRecordNotifications()
         timerManager.resetSleep()
         dismiss()
+    }
+
+    func checkAchievements() {
+        let descriptor = FetchDescriptor<RecordModel>()
+        if let allRecords = try? modelContext.fetch(descriptor) {
+            AchievementManager.shared.checkAchievements(records: allRecords)
+        }
     }
 
     func schedulePostRecordNotifications() {

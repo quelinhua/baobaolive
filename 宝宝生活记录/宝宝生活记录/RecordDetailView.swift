@@ -78,7 +78,7 @@ struct RecordDetailView: View {
                 datePickerSheet
             }
             .sheet(item: $selectedRecord) { record in
-                EditRecordView(recordType: recordType, record: record)
+                RecordInfoView(record: record)
             }
         }
     }
@@ -468,20 +468,7 @@ struct RecordDetailView: View {
     }
 
     var iconColor: Color {
-        switch recordType {
-        case .feeding: return Color.secondary
-        case .sleep: return Color.primaryDim
-        case .diaper: return Color.onSurfaceVariant
-        case .formula: return Color.secondary
-        case .poop: return Color.secondary
-        case .growth: return Color.tertiary
-        case .vaccine: return Color(hex: "FF6B6B")
-        case .babyFood: return Color(hex: "4ECDC4")
-        case .pumping: return Color.secondary
-        case .symptom: return Color.error
-        case .headCircumference: return Color(hex: "96CEB4")
-        case .tooth: return Color.primary
-        }
+        recordType.iconColor
     }
 
     func changeDate(_ days: Int) {

@@ -205,10 +205,18 @@ struct FeedingTimerView: View {
             record.feedingDurationMin = totalMinutes
         }
         modelContext.insert(record)
+        checkAchievements()
 
         schedulePostRecordNotifications()
         timerManager.resetFeeding()
         dismiss()
+    }
+
+    func checkAchievements() {
+        let descriptor = FetchDescriptor<RecordModel>()
+        if let allRecords = try? modelContext.fetch(descriptor) {
+            AchievementManager.shared.checkAchievements(records: allRecords)
+        }
     }
 
     func schedulePostRecordNotifications() {

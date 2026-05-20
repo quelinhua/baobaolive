@@ -16,7 +16,9 @@ struct ContentView: View {
     @State private var showSleepTimer = false
     @State private var showOnboarding = false
     @State private var showCategoriesManage = false
+    @State private var showLaunchScreen = true
     @State private var now = Date()
+    @State private var achievementManager = AchievementManager.shared
     @AppStorage("homePageCategories") var homePageCategoriesData: Data = {
         try! JSONEncoder().encode(RecordType.defaultHomePage)
     }()
@@ -135,6 +137,15 @@ struct ContentView: View {
                 showOnboarding = true
             }
             scheduleNotificationsIfNeeded()
+        }
+        .overlay {
+            if let achievement = achievementManager.newlyUnlocked {
+                AchievementUnlockView(achievement: achievement) {
+                    achievementManager.dismissNewlyUnlocked()
+                }
+                .transition(.opacity)
+                .zIndex(999)
+            }
         }
     }
 
@@ -442,29 +453,11 @@ struct ContentView: View {
     func quickLogCard(for type: RecordType) -> some View {
         let iconColor: Color = {
             if isOverdue(for: type) { return Color.error }
-            switch type {
-            case .feeding: return Color.secondary
-            case .sleep: return Color.primaryDim
-            case .diaper: return Color.onSurfaceVariant
-            case .growth: return Color.tertiary
-            case .vaccine: return Color(hex: "FF6B6B")
-            case .babyFood: return Color(hex: "4ECDC4")
-            case .pumping: return Color.secondary
-            case .symptom: return Color.error
-            case .headCircumference: return Color(hex: "96CEB4")
-            case .tooth: return Color.primary
-            default: return Color.secondary
-            }
+            return type.iconColor
         }()
         let bgColor: Color = {
             if isOverdue(for: type) { return Color.error.opacity(0.15) }
-            switch type {
-            case .feeding: return Color.secondaryContainer.opacity(0.2)
-            case .sleep: return Color.primaryContainer.opacity(0.2)
-            case .diaper: return Color.surfaceVariant.opacity(0.3)
-            case .growth: return Color.tertiaryContainer.opacity(0.2)
-            default: return Color.surfaceVariant.opacity(0.3)
-            }
+            return type.iconBackgroundColor
         }()
 
         QuickLogCard(

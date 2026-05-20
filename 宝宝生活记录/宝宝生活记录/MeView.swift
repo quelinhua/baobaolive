@@ -5,12 +5,22 @@ enum AppTheme: String, CaseIterable {
     case system = "跟随系统"
     case light = "浅色模式"
     case dark = "深色模式"
+
+    var iconName: String {
+        switch self {
+        case .system: return "circle.lefthalf.filled"
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        }
+    }
 }
 
 struct MeView: View {
     @Query(sort: \RecordModel.timestamp, order: .reverse) var allRecords: [RecordModel]
     @Query var babyProfiles: [BabyProfile]
     @State private var babyManager = BabyManager.shared
+    @State private var subscriptionManager = SubscriptionManager.shared
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showBabyProfile = false
     @State private var showNotifications = false
     @State private var showAbout = false
@@ -20,7 +30,10 @@ struct MeView: View {
     @State private var showBabyManager = false
     @State private var showAddNewBaby = false
     @State private var showDeleteConfirm = false
+    @State private var showProView = false
+    @State private var showAchievement = false
     @State private var deleteIndexSet: IndexSet? = nil
+    @State private var animateCards = false
     @AppStorage("appTheme") var appTheme: AppTheme = .system
     @AppStorage("feedingEnabled") var feedingEnabled = true
     @AppStorage("sleepEnabled") var sleepEnabled = true
@@ -49,13 +62,19 @@ struct MeView: View {
             TopAppBar(babyName: babyName, gender: babyProfile?.gender ?? "女", onNotificationTap: { showNotifications = true }, onBabyTap: { showBabyManager = true })
 
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 24) {
                     profileCard
+                        .opacity(animateCards ? 1 : 0)
+                        .offset(y: animateCards ? 0 : 30)
                     statsRow
+                        .opacity(animateCards ? 1 : 0)
+                        .offset(y: animateCards ? 0 : 20)
                     menuSection
+                        .opacity(animateCards ? 1 : 0)
+                        .offset(y: animateCards ? 0 : 10)
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.top, 12)
                 .padding(.bottom, 100)
             }
         }
@@ -67,13 +86,25 @@ struct MeView: View {
             BabyProfileEditView(profile: nil, isNew: true)
         }
         .sheet(isPresented: $showNotifications) { notificationSheet }
-        .sheet(isPresented: $showThemePicker) { themeSheet }
+        .sheet(isPresented: $showThemePicker) { ThemePickerView() }
         .sheet(isPresented: $showAbout) { aboutSheet }
         .sheet(isPresented: $showDataExport) {
             DataExportView(records: allRecords, babyProfile: babyProfile)
         }
         .sheet(isPresented: $showBabyManager) {
             babyManagerSheet
+        }
+        .sheet(isPresented: $showProView) {
+            ProView()
+        }
+        .sheet(isPresented: $showAchievement) {
+            AchievementView()
+        }
+        .onAppear {
+            subscriptionManager.checkSubscriptionStatus()
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1)) {
+                animateCards = true
+            }
         }
     }
 
@@ -83,67 +114,83 @@ struct MeView: View {
                 HStack(spacing: 16) {
                     ZStack {
                         Circle()
-                            .fill(Color.white.opacity(0.25))
-                            .frame(width: 72, height: 72)
+                            .fill(Color.white.opacity(0.2))
+                            .frame(width: 76, height: 76)
+                            .shadow(color: Color.white.opacity(0.3), radius: 8, y: 2)
+                        Circle()
+                            .fill(Color.white.opacity(0.15))
+                            .frame(width: 84, height: 84)
                         Image(systemName: "face.smiling.inverse")
-                            .font(.system(size: 36))
+                            .font(.system(size: 38))
                             .foregroundColor(.white)
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text(babyProfile?.name ?? "宝宝")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.system(size: 24, weight: .bold))
                             .foregroundColor(.white)
-                        Text(babyProfile?.ageDescription ?? "未设置生日")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                        HStack(spacing: 6) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 12))
+                            Text(babyProfile?.ageDescription ?? "未设置生日")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(.white.opacity(0.85))
                     }
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.5))
+                        .padding(8)
+                        .background(Color.white.opacity(0.15))
+                        .clipShape(Circle())
                 }
-                .padding(20)
+                .padding(24)
 
                 HStack(spacing: 0) {
                     profileStatItem(value: latestGrowthRecord?.weightKG.map { String(format: "%.1f", $0) } ?? "--", unit: "kg", label: "体重")
-                    Divider().frame(height: 28).background(.white.opacity(0.3))
+                    Divider().frame(height: 32).background(.white.opacity(0.25))
                     profileStatItem(value: latestGrowthRecord?.heightCM.map { String(format: "%.0f", $0) } ?? "--", unit: "cm", label: "身高")
-                    Divider().frame(height: 28).background(.white.opacity(0.3))
+                    Divider().frame(height: 32).background(.white.opacity(0.25))
                     profileStatItem(value: "\(todayRecords.count)", unit: "条", label: "今日记录")
                 }
-                .padding(.vertical, 14)
-                .padding(.horizontal, 8)
-                .background(.white.opacity(0.1))
+                .padding(.vertical, 16)
+                .padding(.horizontal, 12)
+                .background(Color.white.opacity(0.08))
             }
             .background(
                 LinearGradient(
-                    colors: [Color.primary, Color.primary.opacity(0.7)],
+                    colors: [
+                        Color.primary,
+                        Color.primary.opacity(0.85),
+                        Color.primary.opacity(0.7)
+                    ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             )
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .shadow(color: Color.primary.opacity(0.3), radius: 12, y: 4)
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .shadow(color: Color.primary.opacity(0.4), radius: 16, y: 6)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(ScaleButtonStyle())
     }
 
     func profileStatItem(value: String, unit: String, label: String) -> some View {
-        VStack(spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
+        VStack(spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.white)
+                    .contentTransition(.numericText())
                 Text(unit)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.white.opacity(0.7))
             }
             Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(.white.opacity(0.6))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white.opacity(0.65))
         }
         .frame(maxWidth: .infinity)
     }
@@ -154,9 +201,9 @@ struct MeView: View {
         let diaper = todayRecords.filter { $0.recordType == .diaper || $0.recordType == .poop }.count
 
         return HStack(spacing: 12) {
-            miniStatCard(icon: "figure.child.and.lock.fill", value: "\(feeding)", label: "喂奶", color: Color.secondary)
-            miniStatCard(icon: "bed.double.fill", value: "\(sleep)", label: "睡眠", color: Color.primaryDim)
-            miniStatCard(icon: "tshirt.fill", value: "\(diaper)", label: "尿布", color: Color.onSurfaceVariant)
+            miniStatCard(icon: "figure.child.and.lock.fill", value: "\(feeding)", label: "喂奶", color: Color.primary)
+            miniStatCard(icon: "bed.double.fill", value: "\(sleep)", label: "睡眠", color: Color.primary)
+            miniStatCard(icon: "tshirt.fill", value: "\(diaper)", label: "尿布", color: Color.primary)
         }
     }
 
@@ -168,6 +215,7 @@ struct MeView: View {
             Text(value)
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Color.onSurface)
+                .contentTransition(.numericText())
             Text(label)
                 .font(.system(size: 12))
                 .foregroundColor(Color.outline)
@@ -180,44 +228,120 @@ struct MeView: View {
     }
 
     var menuSection: some View {
-        VStack(spacing: 10) {
-            menuCard(icon: "baby.carriage", title: "宝宝管理", subtitle: "管理宝宝资料和切换宝宝", color: Color(hex: "FF9F43"), action: { showBabyManager = true })
-            menuCard(icon: "bell.badge.fill", title: "通知提醒", subtitle: "喂奶、睡觉、换尿布提醒", color: Color(hex: "FF6B6B"), action: { showNotifications = true })
-            menuCard(icon: "paintpalette.fill", title: "主题选择", subtitle: "浅色、深色、跟随系统", color: Color(hex: "4ECDC4"), action: { showThemePicker = true })
-            menuCard(icon: "doc.text.fill", title: "数据导出", subtitle: "导出CSV或JSON格式数据", color: Color(hex: "45B7D1"), action: { showDataExport = true })
-            menuCard(icon: "heart.circle.fill", title: "关于我们", subtitle: "版本信息与意见反馈", color: Color(hex: "96CEB4"), action: { showAbout = true })
+        VStack(spacing: 12) {
+            if !subscriptionManager.isProUser {
+                proUpgradeCard
+            }
+            menuCard(icon: "baby.carriage", title: "宝宝管理", subtitle: "管理宝宝资料和切换宝宝", color: Color(hex: "FF9F43"), bgColor: Color(hex: "FFF5EB"), action: { showBabyManager = true })
+            menuCard(icon: "trophy.fill", title: "成就中心", subtitle: "查看已解锁成就和进度", color: Color(hex: "FFD700"), bgColor: Color(hex: "FFF8E1"), action: { showAchievement = true })
+            menuCard(icon: "bell.badge.fill", title: "通知提醒", subtitle: "喂奶、睡觉、换尿布提醒", color: Color(hex: "FF6B6B"), bgColor: Color(hex: "FFE8E8"), action: { showNotifications = true })
+            menuCard(icon: "paintpalette.fill", title: "主题选择", subtitle: "浅色、深色、跟随系统", color: Color(hex: "4ECDC4"), bgColor: Color(hex: "E8F8F7"), action: { showThemePicker = true })
+            menuCard(icon: "doc.text.fill", title: "数据导出", subtitle: "导出CSV或JSON格式数据", color: Color(hex: "45B7D1"), bgColor: Color(hex: "E8F4F8"), isProFeature: true, action: {
+                if subscriptionManager.isProUser {
+                    showDataExport = true
+                } else {
+                    showProView = true
+                }
+            })
+            menuCard(icon: "heart.circle.fill", title: "关于我们", subtitle: "版本信息与意见反馈", color: Color(hex: "96CEB4"), bgColor: Color(hex: "EDF7F0"), action: { showAbout = true })
         }
     }
 
-    func menuCard(icon: String, title: String, subtitle: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private var proUpgradeCard: some View {
+        Button(action: { showProView = true }) {
             HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white)
-                    .frame(width: 40, height: 40)
-                    .background(color)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .medium))
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "FFD700"), Color(hex: "FFA500")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 44, height: 44)
+                        .shadow(color: Color(hex: "FFD700").opacity(0.3), radius: 4, y: 2)
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("升级到 Pro")
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Color.onSurface)
-                    Text(subtitle)
+                    Text("解锁多宝宝、数据导出、成长图表等高级功能")
                         .font(.system(size: 12))
                         .foregroundColor(Color.outline)
                 }
+
                 Spacer()
+
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color(hex: "FFD700"))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                LinearGradient(
+                    colors: [Color(hex: "FFF8E1"), Color(hex: "FFFDF5")],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color(hex: "FFD700").opacity(0.3), lineWidth: 1)
+            )
+            .shadow(color: Color(hex: "FFD700").opacity(0.15), radius: 8, y: 3)
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+
+    func menuCard(icon: String, title: String, subtitle: String, color: Color, bgColor: Color, darkBgColor: Color? = nil, isProFeature: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(colorScheme == .dark ? (darkBgColor ?? color.opacity(0.15)) : bgColor)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(color)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.onSurface)
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundColor(Color.outline)
+                }
+                Spacer()
+
+                if isProFeature && !subscriptionManager.isProUser {
+                    Text("Pro")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color(hex: "FFD700"))
+                        .clipShape(Capsule())
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Color.outlineVariant)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             .background(Color.surfaceContainerLowest)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .shadow(color: Color.black.opacity(0.03), radius: 4, y: 1)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: Color.black.opacity(0.04), radius: 6, y: 2)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(ScaleButtonStyle())
     }
 
     struct MenuItem {
@@ -225,34 +349,6 @@ struct MeView: View {
         let title: String
         let color: Color
         let action: () -> Void
-    }
-
-    var themeSheet: some View {
-        NavigationView {
-            List {
-                ForEach(AppTheme.allCases, id: \.self) { theme in
-                    Button(action: { appTheme = theme; showThemePicker = false }) {
-                        HStack {
-                            Text(theme.rawValue)
-                                .foregroundColor(Color.onSurface)
-                            Spacer()
-                            if appTheme == theme {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(Color.primary)
-                            }
-                        }
-                    }
-                }
-            }
-            .listStyle(InsetGroupedListStyle())
-            .navigationTitle("主题选择")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") { showThemePicker = false }
-                }
-            }
-        }
     }
 
     var notificationSheet: some View {
@@ -427,8 +523,8 @@ struct MeView: View {
                                 Circle()
                                     .fill(baby.persistentModelID == babyProfile?.persistentModelID ? Color.primary : Color.surfaceContainerHighest)
                                     .frame(width: 44, height: 44)
-                                Image(systemName: "face.smiling.inverse")
-                                    .font(.system(size: 22))
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 20))
                                     .foregroundColor(baby.persistentModelID == babyProfile?.persistentModelID ? .white : Color.primary)
                             }
 
@@ -463,9 +559,16 @@ struct MeView: View {
 
                 Section {
                     Button(action: {
-                        showBabyManager = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            showAddNewBaby = true
+                        if subscriptionManager.isProUser || babyProfiles.isEmpty {
+                            showBabyManager = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                showAddNewBaby = true
+                            }
+                        } else {
+                            showBabyManager = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                showProView = true
+                            }
                         }
                     }) {
                         HStack(spacing: 12) {
@@ -475,6 +578,17 @@ struct MeView: View {
                             Text("添加新宝宝")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(Color.primary)
+
+                            if !subscriptionManager.isProUser && !babyProfiles.isEmpty {
+                                Spacer()
+                                Text("Pro")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color(hex: "FFD700"))
+                                    .clipShape(Capsule())
+                            }
                         }
                     }
                 }
@@ -568,6 +682,27 @@ struct MeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: Color.black.opacity(0.03), radius: 6, y: 2)
 
+                #if DEBUG
+                VStack(spacing: 1) {
+                    Toggle(isOn: $subscriptionManager.isProUser) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "wrench.and.screwdriver.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.orange)
+                                .frame(width: 28)
+                            Text("DEBUG: Pro 模式")
+                                .font(.system(size: 15))
+                                .foregroundColor(Color.onSurface)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.surfaceContainerLowest)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: Color.black.opacity(0.03), radius: 6, y: 2)
+                #endif
+
                 Spacer()
 
                 Text("用心记录，陪伴成长")
@@ -604,4 +739,8 @@ struct MeView: View {
         .padding(.vertical, 14)
         .background(Color.surfaceContainerLowest)
     }
+}
+
+#Preview {
+    MeView()
 }

@@ -87,11 +87,7 @@ struct AddRecordView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {}) {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 18))
-                            .foregroundColor(Color.primary)
-                    }
+                    Color.clear.frame(width: 1, height: 1)
                 }
             }
         }
@@ -885,15 +881,24 @@ struct AddRecordView: View {
         VStack(spacing: 12) {
             sectionLabel("备注")
 
-            TextEditor(text: $notes)
-                .frame(minHeight: 100)
-                .padding(12)
-                .background(Color.surfaceContainerLowest)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.outlineVariant.opacity(0.3), lineWidth: 1)
-                )
+            ZStack(alignment: .topLeading) {
+                if notes.isEmpty {
+                    Text("添加备注信息...")
+                        .font(.system(size: 16))
+                        .foregroundColor(Color.outline)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 20)
+                }
+                TextEditor(text: $notes)
+                    .frame(minHeight: 100)
+                    .padding(12)
+            }
+            .background(Color.surfaceContainerLowest)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.outlineVariant.opacity(0.3), lineWidth: 1)
+            )
         }
     }
 
@@ -1051,7 +1056,15 @@ struct AddRecordView: View {
         }
 
         modelContext.insert(record)
+        checkAchievements()
         schedulePostRecordNotifications()
+    }
+
+    func checkAchievements() {
+        let descriptor = FetchDescriptor<RecordModel>()
+        if let allRecords = try? modelContext.fetch(descriptor) {
+            AchievementManager.shared.checkAchievements(records: allRecords)
+        }
     }
 
     func schedulePostRecordNotifications() {
